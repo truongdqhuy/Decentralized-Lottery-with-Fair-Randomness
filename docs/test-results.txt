@@ -1,0 +1,40 @@
+
+> team7-fair-lottery@1.0.0 test
+> npm run compile && mocha --timeout 30000 test/lottery.test.cjs
+
+
+> team7-fair-lottery@1.0.0 compile
+> hardhat compile
+
+Nothing to compile
+This version of µWS is not compatible with your Node.js build:
+
+Error: Cannot find module '../binaries/uws_win32_x64_137.node'
+Require stack:
+- C:\Users\johnn\Desktop\Blockchains Project\Decentralized-Lottery-with-Fair-Randomness\node_modules\ganache\node_modules\@trufflesuite\uws-js-unofficial\src\uws.js
+- C:\Users\johnn\Desktop\Blockchains Project\Decentralized-Lottery-with-Fair-Randomness\node_modules\ganache\dist\node\core.js
+- C:\Users\johnn\Desktop\Blockchains Project\Decentralized-Lottery-with-Fair-Randomness\test\lottery.test.cjs
+- C:\Users\johnn\Desktop\Blockchains Project\Decentralized-Lottery-with-Fair-Randomness\node_modules\mocha\lib\nodejs\esm-utils.js
+- C:\Users\johnn\Desktop\Blockchains Project\Decentralized-Lottery-with-Fair-Randomness\node_modules\mocha\lib\mocha.js
+- C:\Users\johnn\Desktop\Blockchains Project\Decentralized-Lottery-with-Fair-Randomness\node_modules\mocha\lib\cli\one-and-dones.js
+- C:\Users\johnn\Desktop\Blockchains Project\Decentralized-Lottery-with-Fair-Randomness\node_modules\mocha\lib\cli\options.js
+- C:\Users\johnn\Desktop\Blockchains Project\Decentralized-Lottery-with-Fair-Randomness\node_modules\mocha\bin\mocha.js
+Falling back to a NodeJS implementation; performance may be degraded.
+
+
+
+
+  FairLottery on Ganache
+    √ settles deterministically, returns bonds, charges exactly 2%, emits events, and withdraws (1205ms)
+    √ cancels a withheld reveal; refunds tickets once; slashes only the missing bond (720ms)
+    √ cancels empty and single-player rounds without locking funds (834ms)
+    √ rejects unauthorized opening, overlapping rounds and short windows (162ms)
+    √ rejects incorrect payments, empty commitments, duplicate entry and late purchases (282ms)
+    √ rejects early, wrong, missing, copied, repeated and late reveals (748ms)
+    √ rejects early/repeated finalization, invalid refunds and empty withdrawals (267ms)
+    √ preserves credits if recipient rejects payment and blocks reentrant withdrawal (910ms)
+    √ keeps prior-round claims available after the next round opens and separates commitments (673ms)
+
+
+  9 passing (11s)
+
