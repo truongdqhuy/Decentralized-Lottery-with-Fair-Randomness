@@ -1,0 +1,8 @@
+node_modules/
+artifacts/
+cache/
+dist/
+.deps/
+tmp/
+frontend/deployment.json
+*.log
