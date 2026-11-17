@@ -1,104 +1,255 @@
-# FairDraw - Decentralized Lottery with Fair Randomness
+# FairDraw — Decentralized Lottery with Fair Randomness
 
-**Project 10 / Team 7**
+**Project 10 · Team 7**
 
 | Member | Student ID |
 | --- | --- |
 | Trương Đức Quốc Huy | 29211154415 |
 | Trần Bảo Duy | 28211354517 |
 
-A Solidity 0.8.24 commit-reveal lottery, Hardhat deployment to Ganache, automated Ganache tests, and a Vite/ethers.js/MetaMask web interface. Use local test ETH only. This classroom prototype has not been independently audited.
+FairDraw is a local Ethereum lottery built with Solidity 0.8.24, Hardhat, Ganache, ethers.js 6 and a Vite web interface. Players buy tickets, commit and reveal private secrets, and let the contract select a winning ticket. Use **Ganache test ETH only**. This educational prototype has not been independently audited.
 
-## Quick start (Windows / PowerShell)
+## Features and rules
 
-Prerequisites: Node.js 22 LTS (Node 24 also tested in this workspace), npm, Ganache desktop, and MetaMask in a browser. Hardhat is bundled locally; Truffle installation is not needed. The assignment permits either framework. Compiler is installed from npm, so compilation does not download solc separately.
+| Rule | Default |
+| --- | --- |
+| Ticket price | 0.01 ETH per ticket |
+| Reveal bond | 0.02 ETH per wallet per round |
+| Winner's share | 98% of ticket sales |
+| Owner's fee | 2% of ticket sales on successful draws |
+| Tickets per wallet | Up to 100 per round |
+| Round capacity | 1,000 tickets and 100 distinct wallets |
+| Minimum participation | Two distinct wallets, with every wallet revealing |
+| Default commit / reveal windows | 120 seconds each; minimum 30 seconds each |
 
-1. Open Ganache, create/open an Ethereum workspace, and leave it running. Its RPC Server should normally be `http://127.0.0.1:7545`. Allow at least 6 accounts with test ETH. Do not use real wallets or a mainnet fork.
-2. In this directory:
+Each ticket carries one equally weighted chance to win. A wallet can buy tickets in batches and add more during Commit, using the same secret. It pays only one bond and reveals once for all its tickets. Bonds are separate from the ticket pot.
 
-   ```powershell
-   npm ci
-   npm test
-   npm run deploy
-   npm run dev
-   ```
+The interface includes lottery-ball artwork, a ticket quantity selector, ticket and reveal status, account switching, secret backup/restore, withdrawals, round lookup, refunds and owner controls. Decorative ball numbers are illustrations, not draw results.
 
-3. Open the Local URL printed by Vite (normally `http://127.0.0.1:5173`) in the browser that has MetaMask.
-4. In MetaMask, add a custom network with RPC `http://127.0.0.1:7545`, symbol `ETH`, and the **chain ID printed by the deployment script** (often 1337). Ganache's network ID, often 5777, is a different value; do not assume it is the chain ID.
-5. Import Ganache account 0 using its local private key for owner controls, and accounts 1 and 2 for players. Keep these throwaway keys local. Connect MetaMask and select the active account when prompted. For a second participant, switch accounts in MetaMask and reconnect after the page reloads.
-6. As account 0, open a round. The UI defaults to 120 seconds for each phase. As players 1 and 2, buy tickets **before the commit deadline** and download each secret backup. Choose the number of tickets. The first purchase costs quantity × 0.01 ETH + one 0.02 ETH reveal bond. Later purchases in that round cost quantity × 0.01 ETH, using the same secret and no extra bond.
-7. After the commit deadline, reveal from both player accounts before the reveal deadline. Each reveal credits the player's bond for withdrawal.
-8. After the reveal deadline, anyone can finalize. The winner receives 0.0196 ETH from a two-ticket round, the owner receives 0.0004 ETH, and both players retain their 0.02 ETH bond credits. Withdraw credits explicitly.
+## Prerequisites
 
-For another RPC URL, set it **before deploying**:
+- Node.js and npm. Node 24 was used for the captured checks; Node 22 LTS is also suitable for this tooling.
+- Ganache desktop with a funded Ethereum workspace.
+- MetaMask installed in the browser used to open the app.
+
+Hardhat is included in the project; installing Truffle separately is unnecessary. Compilation uses the pinned npm solc package and targets the Paris EVM for compatibility.
+
+## Setup in VS Code / Windows PowerShell
+
+Open the repository folder in VS Code, then open **Terminal → New Terminal**. Run commands from the directory containing `package.json`:
+
+```powershell
+cd "C:\Users\johnn\Desktop\Blockchains Project\Decentralized-Lottery-with-Fair-Randomness"
+npm.cmd ci
+npm.cmd test
+```
+
+Open Ganache and leave your workspace running. Check that its RPC Server is `http://127.0.0.1:7545`. Then run:
+
+```powershell
+npm.cmd run deploy
+npm.cmd run dev
+```
+
+Open the **Local** URL printed by Vite, usually `http://127.0.0.1:5173/`, in your MetaMask browser. Keep both Ganache and the terminal running. Stop Vite with **Ctrl+C** when finished.
+
+**PowerShell scripts disabled?** Use `npm.cmd` as shown above. This avoids the blocked `npm.ps1` script without changing your execution policy.
+
+### Configure MetaMask
+
+1. Add a custom network with RPC URL `http://127.0.0.1:7545`, currency symbol `ETH`, and the **chain ID printed by deployment**. The Ganache workspace used here returns **1337**.
+2. Save the network and select it as the active network. Editing its settings alone does not switch to it. The network's display name can be `Ganache Local`.
+3. Import Ganache's first account (index 0) for owner controls, plus two additional funded accounts for players, using their Ganache private keys. Keep these throwaway keys private and never use them with real funds.
+4. Click **Connect MetaMask** and approve the connection. MetaMask account names such as “Account 1” do not identify the corresponding Ganache account; compare wallet addresses.
+5. To use another player, click **Switch / reconnect account ⇄** beside the wallet button and select the desired imported account in MetaMask.
+
+Ganache's **network ID** (often 5777) and Ethereum **chain ID** are different values. MetaMask needs the chain ID. A suggested network-name warning does not mean that port 7545 must be changed to 8545.
+
+### Use a different RPC or ticket price
+
+Set these variables before deploying a **new contract**:
 
 ```powershell
 $env:GANACHE_URL = 'http://127.0.0.1:8545'
-npm run deploy
+$env:TICKET_PRICE_ETH = '0.05'
+npm.cmd run deploy
 ```
 
-The deploy command creates `frontend/deployment.json` with the ABI, address, chain ID and RPC URL. It is intentionally ignored by Git because each Ganache workspace has its own deployment. `npm run build` creates `dist/`; deploy before building if you want that build to include its network configuration. `npm run dev` serves the source directly. After restarting/resetting Ganache, redeploy and reload the page.
+Defaults are port 7545 and a 0.01 ETH ticket. The bond stays 0.02 ETH and the fee stays 2%. Contract price, bond, fee and owner are immutable. To remove overrides:
+
+```powershell
+Remove-Item Env:GANACHE_URL -ErrorAction SilentlyContinue
+Remove-Item Env:TICKET_PRICE_ETH -ErrorAction SilentlyContinue
+```
+
+Deployment writes `frontend/deployment.json` containing the ABI, contract address, chain ID and RPC URL. This file is ignored by Git because deployments belong to individual Ganache workspaces.
+
+## Play a complete round
+
+### 1. Open the round
+
+Connect Ganache account 0, the deployment owner. Scroll to **Behind the draw**, enter commit and reveal durations, and click **Open round**. For practice, 180 seconds per phase gives more time to switch wallets and sign transactions. Only one round can be active at a time.
+
+### 2. Buy tickets during Commit
+
+Connect a funded player account. Choose **Number of tickets**, then click **Buy tickets / add more** and confirm the payment in MetaMask.
+
+```text
+First purchase = ticket quantity × ticket price + one reveal bond
+Later purchases = additional quantity × ticket price
+```
+
+At the default price, buying 10 tickets initially costs **0.12 ETH**: 0.10 ETH enters the pot and 0.02 ETH is the reveal bond. Adding 5 tickets costs another **0.05 ETH**, with no second bond. Gas is additional.
+
+Expand **Keep your ticket secret safe** and download the private secret backup. The app also saves the secret in this browser before submitting the purchase. Do not clear browser data or change browser profiles without a backup. Top-ups require the same original secret.
+
+Connect a second Ganache wallet and buy tickets before Commit ends. Even 100 tickets from a single wallet cannot produce a successful draw: at least two distinct wallets must participate.
+
+### 3. Reveal once per participating wallet
+
+When the phase becomes **Reveal**, connect each participating wallet and click **Reveal my secret** before the reveal deadline. Each wallet reveals once for all its tickets. The UI shows revealed wallets / participating wallets, separately from the ticket count.
+
+A valid reveal immediately credits the wallet's single bond for withdrawal. If the secret is missing, restore that wallet's downloaded backup. Restore checks the chain, contract, round, wallet and on-chain commitment.
+
+### 4. Finalize and collect
+
+After the reveal deadline, anyone can click **Finalize round**. If at least two wallets entered and every wallet revealed, the contract selects a winning ticket, credits the prize and credits the owner's fee. Connect each wallet and click **Collect** to withdraw its available credits.
+
+Example: wallet A owns 10 tickets and wallet B owns 5. The pot is **0.15 ETH**; A has 10 of the 15 ticket slots and B has 5. The winning wallet receives **0.147 ETH**, the owner receives **0.003 ETH**, and each player's **0.02 ETH bond** is credited separately. The winner can collect its prize and bond together.
+
+### Cancelled rounds and refunds
+
+The round cancels on finalization if fewer than two wallets participated or any wallet failed to reveal. A passed deadline alone does not change the on-chain status: **Finalize round must be called first**.
+
+1. Wait until the reveal deadline passes and finalize the round.
+2. Connect the wallet that bought the tickets.
+3. Under **Every round has a receipt**, enter the cancelled round number and click **View round**.
+4. Click **Claim refund** once to credit the payments for all that wallet's tickets.
+5. Click **Collect** to transfer available credits to the wallet.
+
+Revealed bonds were already credited. A missing reveal forfeits the single bond to the owner when the ticket refund is claimed; without a claim, that bond remains escrowed. No fee is charged on cancelled ticket sales. Successful rounds do not offer ticket refunds. Old-round refunds remain available after a new round opens on the same contract.
 
 ## Contract design
 
 ```mermaid
 flowchart LR
-  Owner -->|openRound| Commit[Commit: buyTicket + ETH]
-  Commit -->|commit deadline| Reveal[Reveal: verify secrets + credit bonds]
-  Reveal -->|reveal deadline; anyone finalizes| Decision{All reveal and at least 2?}
-  Decision -->|yes| Settled[Settled: winner 98%, owner 2%]
-  Decision -->|no| Cancelled[Cancelled: claim ticket refunds]
-  Settled --> Credits[credits ledger]
+  Owner -->|openRound| Commit[Commit: buyTickets]
+  Commit -->|commit deadline| Reveal[Reveal: one secret per wallet]
+  Reveal -->|reveal deadline and finalize| Decision{Two wallets and all revealed?}
+  Decision -->|yes| Settled[Winner: 98 percent / Owner: 2 percent]
+  Decision -->|no| Cancelled[Claim all ticket payments]
+  Reveal -->|return bond| Credits[Credit ledger]
+  Settled --> Credits
   Cancelled --> Credits
-  Credits -->|withdraw| Wallet
+  Credits -->|withdraw / Collect| Wallet
 ```
 
-Up to 100 tickets per wallet, 100 unique players, and 1,000 tickets per round. Each paid ticket is one equally weighted chance. A wallet uses one commitment, one reveal and one bond for all its tickets. Additional purchases must use the original commitment. At least two distinct wallets must participate and all must reveal. An address is not proof of a unique person. Fee, price, bond and owner are immutable. Only the owner opens rounds; buying, revealing, finalizing, refunds and withdrawals follow public rules. No owner shortcut closes, redraws, or cancels an active round. Deadlines use chain timestamps, with nonoverlapping intervals: commit `< commitDeadline`; reveal `>= commitDeadline && < revealDeadline`; finalize `>= revealDeadline`.
+Only `openRound` is owner-restricted. Ticket purchases, reveals, finalization, eligible refunds and withdrawals follow public rules. The owner cannot close an active round early, redraw it or change its terms.
 
-Commitment:
+| Function | Purpose |
+| --- | --- |
+| `openRound(commitSeconds, revealSeconds)` | Open a round as owner |
+| `commitmentFor(roundId, player, secret)` | Calculate a domain-bound commitment |
+| `buyTickets(roundId, commitment, quantity)` | Purchase or top up tickets during Commit |
+| `buyTicket(roundId, commitment)` | One-ticket convenience entry point |
+| `reveal(roundId, secret)` | Verify a wallet's secret and credit its bond |
+| `finalize(roundId)` | Settle or cancel after the reveal deadline |
+| `claimRefund(roundId)` | Credit all ticket payments for a cancelled round |
+| `withdraw(recipient)` | Transfer caller-owned credits to a recipient |
+| `getRound`, `getPlayers`, `getTicketOwners`, `tickets`, `credits` | Read round data, unique wallets, weighted entries and balances |
+
+Commitments use:
 
 ```text
 keccak256(abi.encode(contractAddress, chainId, roundId, player, bytes32Secret))
 ```
 
-Each validated reveal XORs `keccak256(abi.encode(player, secret))` into an accumulator. The final hash binds that accumulator to this contract, chain, and round, and its integer value modulo the number of tickets selects the winner from ticketOwners, an array containing one owner address per paid ticket. getPlayers returns unique wallets; getTicketOwners returns the weighted entries. The accumulator is independent of reveal order. Winner selection and cancellation do not iterate over participants.
+Each valid reveal XORs `keccak256(abi.encode(player, secret))` into a running accumulator, independently of reveal order. The final hash binds the accumulator to this contract, chain and round. Its integer value modulo `totalTickets` selects an entry in `ticketOwners`, which contains one owner address per paid ticket. `getPlayers` contains unique wallets, not repeated ticket entries.
+
+Deadlines do not overlap: Commit uses `< commitDeadline`; Reveal uses `>= commitDeadline && < revealDeadline`; finalization uses `>= revealDeadline`. Contract checks remain authoritative if a stale UI or delayed signature crosses a deadline.
+
+Important state changes emit events: `RoundOpened`, `TicketBought`, `TicketsBought`, `SecretRevealed`, `WinnerSelected`, `RoundCancelled`, `RefundClaimed` and `Withdrawal`.
 
 ## Security and fairness limits
 
-- Block timestamps, hashes and similar public block data are unsuitable as the sole randomness source: participants can predict public inputs and block producers can influence inclusion/timing. Timestamps here only enforce phase deadlines. See [Solidity security guidance](https://docs.soliditylang.org/en/latest/security-considerations.html) and [global variables documentation](https://docs.soliditylang.org/en/latest/units-and-global-variables.html).
-- Uniform, private, independently generated 32-byte secrets are essential. The UI uses ethers' cryptographic random-byte generator. Never choose passwords, dates, or reuse secrets. A completed draw needs at least one honest unpredictable contribution and all reveals.
-- The last revealer can calculate the prospective winner and choose to abort. This implementation cancels the entire round if even one reveal is missing; it never selects a winner from a selectively reduced secret set. **Cancellation still permits denial of service and selective completion. It is not an unbiased, always-available production lottery.** The bond discourages withholding; it does not mathematically prevent it, especially with many tickets, collusion, or an owner who also plays.
-- On cancellation, each participating wallet calls `claimRefund(roundId)` once. Revealed bonds were already credited. An unrevealed bond is forfeited to the owner **when that player claims the ticket refund**; otherwise it remains escrowed. No ticket-sale fee is charged on cancellation. Owner beneficiary incentives are a limitation; production designs should reconsider penalty distribution.
-- Funds use pull payments and checks-effects-interactions with a withdrawal lock. A rejecting recipient cannot block finalization or other accounts; the caller may retry with another recipient. Credits and old-round refunds survive new rounds. Funds never claimed remain in escrow. Forced ETH is outside the credits ledger and cannot be swept by the owner.
-- UI secrets are plaintext in localStorage and exported backups. Use only test funds, keep backups private, and reveal from the same browser/profile or restore the backup. Device compromise, XSS or clearing storage can lose the secret. Commitments are domain-bound against copied reveals across users, rounds, contracts and chains.
-- Modulo introduces negligible mathematical bias (at most 1,000 outcomes from a 256-bit hash), and hash security is an assumption. No on-chain entropy is perfectly random merely because it is hashed. A production extension should use a verified VRF, with explicitly designed funding, fulfillment and timeout rules.
+- **Block data is unsafe as the sole randomness source.** Public or predictable inputs can be anticipated, and block producers can influence timing and inclusion. Timestamps enforce deadlines here; they do not supply draw entropy. See the [Solidity global variables documentation](https://docs.soliditylang.org/en/latest/units-and-global-variables.html) and [security guidance](https://docs.soliditylang.org/en/latest/security-considerations.html).
+- **Secrets must be unpredictable.** The UI uses ethers' cryptographic random-byte generator for 32-byte secrets. Never use passwords, dates or reused secrets. Commitments bind the chain, contract, round and player to prevent copied reveals across domains.
+- **The last revealer can force cancellation.** It can calculate the prospective winner and withhold its secret. Cancelling on any missing reveal avoids drawing from a selectively incomplete set, but selective completion and denial of service remain possible. Bonds discourage withholding; they do not guarantee fairness or availability, especially for larger pots or colluding wallets.
+- **An address is not a unique person.** One person can control multiple wallets. More paid tickets deliberately give more chances; the wallet cap does not prevent Sybil participation.
+- **Pull payments isolate transfers.** Credits are cleared before withdrawal calls, with a reentrancy lock. Failed transfers revert without losing credit; a caller can retry with another recipient. A rejecting recipient cannot block settlement or other users. Unclaimed funds remain escrowed. Forced ETH is outside the credit ledger and has no owner sweep function.
+- **Local backups are sensitive.** Secrets are plaintext in localStorage and exported JSON. XSS, device compromise or lost browser storage can expose or lose them. Keep backups private and use only test funds.
+- **Economic and randomness assumptions remain.** The owner receives forfeited bonds, creating a beneficiary incentive. Modulo bias is negligible but nonzero for up to 1,000 slots in a 256-bit hash space. A completed draw assumes at least one honest unpredictable secret and all reveals. Production extensions should consider verified VRF with explicit funding, fulfillment and timeout rules.
 
-## Tests, gas and deliverables
+## Tests and gas analysis
 
-`npm test` compiles with local solc and runs automated tests on fresh **in-process Ganache 7.9.2** chains, separate from your desktop workspace. It covers successful settlement/accounting/events, cancellation/refunds, no-player/single-player rounds, access control, bad payment, changed commitments, ticket quantity limits, top-up accounting, weighted selection, invalid/repeated/late reveals, replay protection, early/repeated finalization, failed transfers, reentrancy and old-round claims. Many more than three require/revert cases are covered. Test output and gas data are in `docs/`.
+```powershell
+npm.cmd test
+```
 
-`docs/gas-results.json` records transaction receipt `gasUsed`, compiler settings and scenario. Gas is not an ETH amount: cost = gasUsed × effectiveGasPrice. Price and network affect ETH cost. Optimization: packed round metadata and a running XOR accumulator avoid a settlement loop; purchases append one owner slot per ticket (a bounded loop of at most 100); each player's refund is a separate O(1) claim. This reduces settlement work compared with iterating over all secrets, while persistent storage still costs gas. No unsupported before/after percentage is claimed.
+The captured suite has **12 passing tests**. Each test uses a fresh in-process Ganache 7.9.2 chain, independently of the desktop workspace. Coverage includes payouts/events/accounting, empty and single-wallet rounds, cancellation, multi-ticket weighted selection, top-ups, one bond per wallet, quantity limits, full ticket refunds, access control, bad payment, changed commitments, invalid/copied/repeated/late reveals, invalid finalization/refunds, failed transfers, reentrancy and old-round claims. More than three require/revert failure cases are covered.
 
-`npm run demo` performs an automated two-player flow on your running desktop Ganache using a **separate contract**. It advances local chain time via `evm_increaseTime` and writes `docs/ganache-demo-results.txt`; run it before opening a frontend round, since time travel affects the whole workspace. It leaves the frontend deployment configuration unchanged.
+- `docs/test-results.txt`: captured test output.
+- `docs/gas-results.json`: measured receipt `gasUsed`, scenario and compiler settings, including batch purchases and top-ups.
 
-Files:
+Gas depends on storage state and the operation. Transaction cost is `gasUsed × effectiveGasPrice`. The compiler optimizer uses 200 runs. Packed round metadata and a running accumulator keep finalization independent of participant count; refunds are O(1) claims. Purchasing appends a bounded number of weighted ticket slots (at most 100 per call), so larger batches cost more gas. No unmeasured percentage saving is claimed.
 
-- `contracts/FairLottery.sol`: primary contract; `WithdrawalProbe.sol`: test-only attack probe.
-- `test/lottery.test.cjs`: reproducible tests; `scripts/deploy.cjs`: Ganache deployment.
-- `frontend/` and `index.html`: full browser workflow with backup/restore and account/network checks.
-- `output/pdf/team7-project-report.pdf`: six-page report; `scripts/report.py`: reproducible report source.
-- `docs/DEMO.md`: 10-minute demo plan; `docs/test-results.txt`: captured test results.
+Ganache may print a Node-version-specific µWS warning and fall back to its JavaScript implementation. In the captured test run, that warning did not prevent the tests from passing.
+
+## Build, demo and deliverables
+
+| Command | Result |
+| --- | --- |
+| `npm.cmd run compile` | Compile the contracts |
+| `npm.cmd test` | Compile and run the Ganache tests |
+| `npm.cmd run deploy` | Deploy a new contract to desktop Ganache and generate web configuration |
+| `npm.cmd run dev` | Start the local Vite web server |
+| `npm.cmd run build` | Build `dist/` and copy available deployment configuration |
+| `npm.cmd run demo` | Run an automated two-wallet demonstration on a separate contract |
+
+Deploy before building to include the intended `frontend/deployment.json` in `dist/`. Refresh the browser after changing the deployment.
+
+The automated demo advances the desktop chain clock with `evm_increaseTime`, affects the entire workspace, and writes `docs/ganache-demo-results.txt`. Run it before opening a live UI round. It leaves the frontend deployment configuration unchanged. A previous demo transcript is evidence of that run; rerun the script to record a new demonstration of the current contract. Browser signing and MetaMask configuration still need manual verification.
+
+| Path | Deliverable |
+| --- | --- |
+| `contracts/FairLottery.sol` | Primary Solidity contract |
+| `contracts/WithdrawalProbe.sol` | Test-only reentrancy probe |
+| `test/lottery.test.cjs` | Automated contract tests |
+| `scripts/deploy.cjs`, `scripts/demo.cjs` | Deployment and automated demo |
+| `index.html`, `frontend/` | Web app and wallet workflow |
+| `output/pdf/team7-project-report.pdf` | Six-page report with diagram, security and gas analysis |
+| `scripts/report.py` | Reproducible report source; requires ReportLab, pypdfium2 and Windows Arial fonts |
+| `docs/DEMO.md` | Ten-minute live demonstration guide |
+| `docs/test-results.txt`, `docs/gas-results.json` | Test and gas evidence |
+
+## Redeployment and old credits
+
+A new deployment has its own rounds and balances. Upgrading does not move credits or tickets from the old contract. The deployment script preserves the previous ABI/address/configuration in `local-deployments/<address>.json`; these local files are ignored by Git.
+
+To revisit an old deployment on the **same Ganache workspace**:
+
+1. Stop Vite and save a copy of the current `frontend/deployment.json` somewhere safe inside the project.
+2. Copy the archived configuration for the desired contract over `frontend/deployment.json`.
+3. Restart Vite, refresh and reconnect. The UI also supports archived one-ticket deployments for their refunds and credits.
+4. Restore the saved current configuration to return to the upgraded contract. Rebuild if serving `dist/`.
+
+Keep the same Ganache workspace and do not reset it while old rounds or funds are needed. Closing and reopening a saved workspace may preserve its chain; resetting or replacing it does not. If the expected contract is gone, redeploy for future rounds. Redeployment cannot recover erased chain state.
 
 ## Troubleshooting
 
-Connection refused: open Ganache and compare its displayed RPC address with `GANACHE_URL`. Incorrect network: use the chain ID printed by deployment. Owner button disabled: connect the account that deployed the contract. Missing deployment: run `npm run deploy`. Transaction rejected: inspect the message and current phase; contract rules remain authoritative even if the UI is stale. A late reveal cannot be recovered: finalize, then claim the ticket refund. After resetting Ganache, use MetaMask's clear activity/nonce data for the local network if transactions become stuck, then redeploy. Never reset a wallet holding real assets for this exercise.
+| Symptom | What to do |
+| --- | --- |
+| `npm.ps1` cannot run | Use `npm.cmd` in the VS Code PowerShell terminal |
+| Connection refused | Start Ganache and check its RPC URL; start Vite for the website |
+| Wrong network | Save **and select** Ganache in MetaMask; use the deployment's chain ID |
+| No contract at this address | Check the intended Ganache workspace; redeploy if its chain was reset, then refresh |
+| Pending MetaMask request | Open the extension and complete or reject the pending request before retrying |
+| Wrong account / owner button disabled | Use **Switch / reconnect account**; compare the wallet with Ganache account 0 |
+| Buy button disabled | Check Commit is active, quantity is valid and wallet/round caps are not reached |
+| Top-up needs a secret | Restore the original backup; additional tickets must use the same commitment |
+| Refund rejected | Finalize after the reveal deadline, confirm cancellation, choose the correct round and ticket-owning wallet; refunds can be claimed only once |
+| Refund claimed but wallet balance unchanged | Click **Collect**; claiming adds credit rather than sending ETH immediately |
+| Reveal missed | Finalize after the deadline, then claim ticket payments; the missing reveal bond is forfeited |
+| Generic JSON-RPC error | Refresh and read the eligibility message; check MetaMask's transaction details and Ganache state before retrying |
 
-The live MetaMask signing step requires your browser interaction. Automated contract and build checks do not prove that an extension has been configured correctly.
-
-## Multiple tickets and deployment upgrades
-
-Use **Number of tickets** to choose 1-100; the page shows the exact payment before MetaMask approval. You can add tickets during Commit, up to 100 total per wallet. Keep the original secret: one reveal covers every ticket owned by that wallet. Cancellation refunds all ticket payments in one claim; the single bond is returned on reveal or forfeited on a missing reveal. Ten tickets cost 0.10 ETH plus a 0.02 ETH bond on the first purchase.
-
-The default ticket price remains 0.01 ETH as requested. To use a different price on a **new deployment**, set `$env:TICKET_PRICE_ETH = '0.05'` before `npm.cmd run deploy`. Existing contract prices never change.
-
-An upgrade deploys a new contract; old rounds/credits remain in the old contract. The deployment script saves the previous ABI/address/config in `local-deployments/<address>.json`. To revisit old funds, stop the UI server, copy that saved JSON over `frontend/deployment.json`, then restart and reconnect. Rebuild if serving dist. Restore the latest config to return to the upgraded contract. Do not reset Ganache while old funds or rounds are needed.
+Keep private keys and secret backups out of screenshots, commits and presentations. Automated build and contract tests do not prove the browser extension is configured correctly.
