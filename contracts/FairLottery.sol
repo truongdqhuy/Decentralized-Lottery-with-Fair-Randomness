@@ -12,13 +12,16 @@ contract FairLottery {
         uint256 entropy;
         address winner;
         address[] players;
+        address[] ticketOwners;
     }
-    struct Ticket { bytes32 commitment; bool revealed; bool refunded; }
+    struct Ticket { bytes32 commitment; bool revealed; bool refunded; uint32 quantity; }
     address public immutable owner;
     uint256 public immutable ticketPrice;
     uint256 public immutable revealBond;
     uint256 public immutable feeBps;
     uint256 public constant MAX_PLAYERS = 100;
+    uint256 public constant MAX_TICKETS = 1000;
+    uint256 public constant MAX_TICKETS_PER_WALLET = 100;
     uint256 public currentRound;
     mapping(uint256 => Round) private rounds;
     mapping(uint256 => mapping(address => Ticket)) public tickets;
@@ -27,6 +30,7 @@ contract FairLottery {
 
     event RoundOpened(uint256 indexed roundId, uint256 commitDeadline, uint256 revealDeadline);
     event TicketBought(uint256 indexed roundId, address indexed player, bytes32 commitment);
+    event TicketsBought(uint256 indexed roundId, address indexed player, uint256 quantity, uint256 totalOwned);
     event SecretRevealed(uint256 indexed roundId, address indexed player);
     event WinnerSelected(uint256 indexed roundId, address indexed winner, uint256 prize, uint256 fee);
     event RoundCancelled(uint256 indexed roundId, uint256 missingReveals);
@@ -52,15 +56,31 @@ contract FairLottery {
         return keccak256(abi.encode(address(this), block.chainid, id, player, secret));
     }
     function buyTicket(uint256 id, bytes32 commitment) external payable {
+        _buyTickets(id, commitment, 1);
+    }
+    function buyTickets(uint256 id, bytes32 commitment, uint32 quantity) external payable {
+        _buyTickets(id, commitment, quantity);
+    }
+    function _buyTickets(uint256 id, bytes32 commitment, uint32 quantity) private {
         Round storage r = rounds[id];
         require(r.status == Status.Open && block.timestamp < r.commitDeadline, "Commit closed");
-        require(msg.value == ticketPrice + revealBond, "Wrong payment");
+        Ticket storage t = tickets[id][msg.sender];
+        bool first = t.commitment == bytes32(0);
+        require(quantity > 0 && uint256(t.quantity) + quantity <= MAX_TICKETS_PER_WALLET, "Invalid quantity");
+        require(r.ticketOwners.length + quantity <= MAX_TICKETS, "Ticket cap reached");
+        require(msg.value == ticketPrice * quantity + (first ? revealBond : 0), "Wrong payment");
         require(commitment != bytes32(0), "Empty commitment");
-        require(tickets[id][msg.sender].commitment == bytes32(0), "Already entered");
-        require(r.players.length < MAX_PLAYERS, "Round full");
-        tickets[id][msg.sender].commitment = commitment;
-        r.players.push(msg.sender);
+        if (first) {
+            require(r.players.length < MAX_PLAYERS, "Round full");
+            t.commitment = commitment;
+            r.players.push(msg.sender);
+        } else {
+            require(t.commitment == commitment, "Use original commitment");
+        }
+        t.quantity += quantity;
+        for (uint256 i; i < quantity; ++i) r.ticketOwners.push(msg.sender);
         emit TicketBought(id, msg.sender, commitment);
+        emit TicketsBought(id, msg.sender, quantity, t.quantity);
     }
     function reveal(uint256 id, bytes32 secret) external {
         Round storage r = rounds[id];
@@ -87,8 +107,8 @@ contract FairLottery {
         }
         r.status = Status.Settled;
         uint256 random = uint256(keccak256(abi.encode(address(this), block.chainid, id, r.entropy)));
-        r.winner = r.players[random % count];
-        uint256 pot = count * ticketPrice;
+        r.winner = r.ticketOwners[random % r.ticketOwners.length];
+        uint256 pot = r.ticketOwners.length * ticketPrice;
         uint256 fee = pot * feeBps / 10000;
         credits[r.winner] += pot - fee;
         credits[owner] += fee;
@@ -101,9 +121,10 @@ contract FairLottery {
         require(t.commitment != bytes32(0) && !t.refunded, "No refund");
         t.refunded = true;
         // Non-revealers forfeit the bond; nobody earns a fee on cancelled ticket sales.
-        credits[msg.sender] += ticketPrice;
+        uint256 refund = ticketPrice * t.quantity;
+        credits[msg.sender] += refund;
         if (!t.revealed) credits[owner] += revealBond;
-        emit RefundClaimed(id, msg.sender, ticketPrice);
+        emit RefundClaimed(id, msg.sender, refund);
     }
     function withdraw(address payable recipient) external {
         require(!locked, "Reentrancy");
@@ -119,10 +140,11 @@ contract FairLottery {
     }
     function getRound(uint256 id) external view returns (
         uint64 commitDeadline, uint64 revealDeadline, Status status, uint32 revealed,
-        uint256 entropy, address winner, uint256 playerCount
+        uint256 entropy, address winner, uint256 playerCount, uint256 totalTickets
     ) {
         Round storage r = rounds[id];
-        return (r.commitDeadline, r.revealDeadline, r.status, r.revealed, r.entropy, r.winner, r.players.length);
+        return (r.commitDeadline, r.revealDeadline, r.status, r.revealed, r.entropy, r.winner, r.players.length, r.ticketOwners.length);
     }
     function getPlayers(uint256 id) external view returns (address[] memory) { return rounds[id].players; }
+    function getTicketOwners(uint256 id) external view returns (address[] memory) { return rounds[id].ticketOwners; }
 }

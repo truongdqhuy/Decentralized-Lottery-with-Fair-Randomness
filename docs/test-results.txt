@@ -6,7 +6,7 @@
 > team7-fair-lottery@1.0.0 compile
 > hardhat compile
 
-Nothing to compile
+Compiled 1 Solidity file successfully (evm target: paris).
 This version of µWS is not compatible with your Node.js build:
 
 Error: Cannot find module '../binaries/uws_win32_x64_137.node'
@@ -25,16 +25,19 @@ Falling back to a NodeJS implementation; performance may be degraded.
 
 
   FairLottery on Ganache
-    √ settles deterministically, returns bonds, charges exactly 2%, emits events, and withdraws (1205ms)
-    √ cancels a withheld reveal; refunds tickets once; slashes only the missing bond (720ms)
-    √ cancels empty and single-player rounds without locking funds (834ms)
-    √ rejects unauthorized opening, overlapping rounds and short windows (162ms)
-    √ rejects incorrect payments, empty commitments, duplicate entry and late purchases (282ms)
-    √ rejects early, wrong, missing, copied, repeated and late reveals (748ms)
-    √ rejects early/repeated finalization, invalid refunds and empty withdrawals (267ms)
-    √ preserves credits if recipient rejects payment and blocks reentrant withdrawal (910ms)
-    √ keeps prior-round claims available after the next round opens and separates commitments (673ms)
+    √ settles deterministically, returns bonds, charges exactly 2%, emits events, and withdraws (1137ms)
+    √ cancels a withheld reveal; refunds tickets once; slashes only the missing bond (843ms)
+    √ cancels empty and single-player rounds without locking funds (756ms)
+    √ rejects unauthorized opening, overlapping rounds and short windows (229ms)
+    √ rejects incorrect payments, empty commitments, duplicate entry and late purchases (289ms)
+    √ rejects early, wrong, missing, copied, repeated and late reveals (644ms)
+    √ rejects early/repeated finalization, invalid refunds and empty withdrawals (258ms)
+    √ preserves credits if recipient rejects payment and blocks reentrant withdrawal (894ms)
+    √ keeps prior-round claims available after the next round opens and separates commitments (642ms)
+    √ weights each paid ticket equally, charges one bond per wallet and reveals once (1345ms)
+    √ refunds all purchased tickets on cancellation but forfeits only one missing bond (432ms)
+    √ rejects zero/excess quantities, changed commitments and a second bond on top-up (273ms)
 
 
-  9 passing (11s)
+  12 passing (13s)
 

@@ -70,7 +70,7 @@ describe('FairLottery on Ganache', function () {
   it('rejects incorrect payments, empty commitments, duplicate entry and late purchases', async () => {
     await revert(c.connect(accounts[1]).buyTicket(1,secret(1),{value:price}));
     await revert(c.connect(accounts[1]).buyTicket(1,ethers.ZeroHash,{value:price+bond}));
-    await enter(1); await revert(enter(1)); await advance(60); await revert(enter(2));
+    await enter(1); await revert(enter(1, secret(9))); await advance(60); await revert(enter(2));
   });
   it('rejects early, wrong, missing, copied, repeated and late reveals', async () => {
     await enter(1); await revert(c.connect(accounts[1]).reveal(1,secret(1)));
@@ -107,5 +107,40 @@ describe('FairLottery on Ganache', function () {
     await enter(1); await advance(120); await tx(c.finalize(1)); await tx(c.openRound(60,60));
     assert.notEqual(await c.commitmentFor(1,await accounts[1].getAddress(),secret(1)),await c.commitmentFor(2,await accounts[1].getAddress(),secret(1)));
     await tx(c.connect(accounts[1]).claimRefund(1)); assert.equal(await c.credits(await accounts[1].getAddress()),price);
+  });
+  it('weights each paid ticket equally, charges one bond per wallet and reveals once', async () => {
+    const a=await accounts[1].getAddress(), b=await accounts[2].getAddress();
+    const commitment=await c.commitmentFor(1,a,secret(1));
+    await tx(c.connect(accounts[1]).buyTickets(1,commitment,3,{value:price*3n+bond}),'buyThreeTickets');
+    await tx(c.connect(accounts[1]).buyTickets(1,commitment,2,{value:price*2n}),'topUpTwoTickets');
+    await enter(2);
+    const owners=await c.getTicketOwners(1);
+    assert.deepEqual([...owners],[a,a,a,a,a,b]);
+    assert.equal((await c.getRound(1)).playerCount,2n);
+    assert.equal((await c.getRound(1)).totalTickets,6n);
+    assert.equal((await c.tickets(1,a)).quantity,5n);
+    await advance(60);await tx(c.connect(accounts[1]).reveal(1,secret(1)));await tx(c.connect(accounts[2]).reveal(1,secret(2)));
+    assert.equal(await c.credits(a),bond);await advance(60);await tx(c.finalize(1));
+    const r=await c.getRound(1);
+    const random=BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['address','uint256','uint256','uint256'],[await c.getAddress(),1337,1,r.entropy])));
+    assert.equal(r.winner,owners[Number(random%6n)]);
+    assert.equal(await c.credits(r.winner),bond+price*6n*98n/100n);
+    for(const signer of accounts.slice(0,3))await tx(c.connect(signer).withdraw(await signer.getAddress()));
+    assert.equal(await provider.getBalance(await c.getAddress()),0n);
+  });
+  it('refunds all purchased tickets on cancellation but forfeits only one missing bond', async()=>{
+    const a=await accounts[1].getAddress(), commitment=await c.commitmentFor(1,a,secret(1));
+    await tx(c.connect(accounts[1]).buyTickets(1,commitment,4,{value:price*4n+bond}));
+    await advance(120);await tx(c.finalize(1));await tx(c.connect(accounts[1]).claimRefund(1));
+    assert.equal(await c.credits(a),price*4n);assert.equal(await c.credits(await accounts[0].getAddress()),bond);
+    await revert(c.connect(accounts[1]).claimRefund(1));
+  });
+  it('rejects zero/excess quantities, changed commitments and a second bond on top-up', async()=>{
+    const a=await accounts[1].getAddress(), commitment=await c.commitmentFor(1,a,secret(1));
+    await revert(c.connect(accounts[1]).buyTickets(1,commitment,0,{value:bond}));
+    await revert(c.connect(accounts[1]).buyTickets(1,commitment,101,{value:price*101n+bond}));
+    await enter(1);
+    await revert(c.connect(accounts[1]).buyTickets(1,secret(9),1,{value:price}));
+    await revert(c.connect(accounts[1]).buyTickets(1,commitment,1,{value:price+bond}));
   });
 });

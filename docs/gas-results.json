@@ -2,15 +2,17 @@
   "environment": "Ganache 7.9.2, chain 1337, Shanghai; solc 0.8.24, Paris target, optimizer 200 runs",
   "scenario": "Two entrants; 0.01 ETH ticket + 0.02 ETH bond; 2% fee. Values are receipt gasUsed; storage state affects gas.",
   "gas": {
-    "deployment": 1274703,
-    "openRound": 68773,
-    "buyTicket": 93204,
-    "revealFirst": 98587,
-    "revealNext": 81487,
-    "finalizeSuccess": 86247,
-    "withdraw": 46570,
+    "deployment": 1463620,
+    "openRound": 68795,
+    "buyTicket": 162880,
+    "revealFirst": 81509,
+    "revealNext": 64409,
+    "finalizeSuccess": 88463,
+    "withdraw": 46569,
     "finalizeCancelled": 30722,
-    "claimRefundRevealed": 38313,
-    "claimRefundMissing": 94803
+    "claimRefundRevealed": 38440,
+    "claimRefundMissing": 77830,
+    "buyThreeTickets": 207970,
+    "topUpTwoTickets": 86976
   }
 }

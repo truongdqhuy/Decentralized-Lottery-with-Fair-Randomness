@@ -5,4 +5,5 @@ dist/
 .deps/
 tmp/
 frontend/deployment.json
+local-deployments/
 *.log
