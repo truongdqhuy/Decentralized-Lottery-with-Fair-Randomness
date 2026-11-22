@@ -39,7 +39,7 @@ Hardhat is included in the project; installing Truffle separately is unnecessary
 Open the repository folder in VS Code, then open **Terminal → New Terminal**. Run commands from the directory containing `package.json`:
 
 ```powershell
-cd "C:\Users\johnn\Desktop\Blockchains Project\Decentralized-Lottery-with-Fair-Randomness"
+cd "Decentralized-Lottery-with-Fair-Randomness"
 npm.cmd ci
 npm.cmd test
 ```
