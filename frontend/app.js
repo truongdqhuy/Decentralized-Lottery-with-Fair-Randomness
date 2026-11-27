@@ -10,21 +10,34 @@ function saveSecret(id, secret) {
   const backup={chainId:config.chainId,contract:config.address,round:String(id),account,secret};
   localStorage.setItem(key(id),JSON.stringify(backup)); return backup;
 }
+function tickClock() {
+  const now=Math.floor(Date.now()/1000);
+  for(const id of ['commitTime','revealTime']){
+    const el=$(id), t=Number(el.dataset.t);
+    if(!t){el.textContent='—';continue;}
+    const left=t-now, s=Math.abs(left);
+    const span=`${Math.floor(s/60)}m ${String(s%60).padStart(2,'0')}s`;
+    el.textContent=`${new Date(t*1000).toLocaleTimeString()} · ${left>0?`${span} left`:'ended'}`;
+  }
+}
+setInterval(tickClock,1000);
 async function refresh() {
   if(!contract || busy) return;
   roundId=await contract.currentRound();
   const [r, price, bond, credit, owner, block] = await Promise.all([contract.getRound(roundId),contract.ticketPrice(),contract.revealBond(),contract.credits(account),contract.owner(),provider.getBlock('latest')]);
-  const now=BigInt(block.timestamp), open=r.status===1n;
+  // Local chains only advance block time when mining, so the latest block timestamp can lag behind real time.
+  const now=BigInt(Math.max(block.timestamp,Math.floor(Date.now()/1000))), open=r.status===1n;
+  const allRevealed=r.playerCount>=2n&&BigInt(r.revealed)===r.playerCount&&now>=r.commitDeadline;
   // Archived deployments use the original one-ticket ABI; keep old refunds accessible.
   const multiTicket=contract.interface.hasFunction('buyTickets');
   const totalTickets=r.totalTickets??r.playerCount;
   $('quantity').max=multiTicket?'100':'1';
   if(!multiTicket)$('quantity').value='1';
-  const phase=!roundId?'No round':r.status===2n?'Settled':r.status===3n?'Cancelled':now<r.commitDeadline?'Commit':now<r.revealDeadline?'Reveal':'Ready to finalize';
+  const phase=!roundId?'No round':r.status===2n?'Settled':r.status===3n?'Cancelled':now<r.commitDeadline?'Commit':now<r.revealDeadline&&!allRevealed?'Reveal':'Ready to finalize';
   $('phase').textContent=phase; $('round').textContent=String(roundId); $('players').textContent=String(totalTickets); $('revealed').textContent=`${r.revealed} / ${r.playerCount}`;
   $('pot').textContent=fmt(totalTickets*price); $('credit').textContent=`${fmt(credit)} ETH`;
-  $('commitTime').textContent=roundId?new Date(Number(r.commitDeadline)*1000).toLocaleTimeString():'—';
-  $('revealTime').textContent=roundId?new Date(Number(r.revealDeadline)*1000).toLocaleTimeString():'—';
+  $('commitTime').dataset.t=roundId?String(r.commitDeadline):''; $('revealTime').dataset.t=roundId?String(r.revealDeadline):'';
+  tickClock();
   $('winner').textContent=r.status===2n?`Winner: ${r.winner}`:'';
   $('winner').hidden=r.status!==2n;
   const stage=phase==='Commit'?'commit':phase==='Reveal'?'reveal':phase==='Ready to finalize'||phase==='Settled'?'draw':'';
@@ -38,7 +51,7 @@ async function refresh() {
   $('ticketStatus').textContent=first?'NO TICKETS THIS ROUND':`${owned} TICKET(S) · ${t.revealed?'SECRET REVEALED':'KEEP YOUR SECRET'}`;
   $('buy').disabled=!(open&&now<r.commitDeadline&&valid&&(multiTicket||first)&&(!first||r.playerCount<100n));
   $('reveal').disabled=!(open&&now>=r.commitDeadline&&now<r.revealDeadline&&t.commitment!==ethers.ZeroHash&&!t.revealed);
-  $('finalize').disabled=!(open&&now>=r.revealDeadline);
+  $('finalize').disabled=!(open&&(now>=r.revealDeadline||allRevealed));
   $('withdraw').disabled=credit===0n;
   $('open').disabled=owner.toLowerCase()!==account.toLowerCase()||open;
   $('backup').disabled=!getSecret(roundId);
@@ -80,7 +93,19 @@ async function connectWallet(switchAccount = false) {
 }
 $('connect').onclick=()=>action(()=>connectWallet());
 $('reconnect').onclick=()=>action(()=>connectWallet(true));
-$('open').onclick=()=>action(()=>send(contract.openRound(Number($('commitSeconds').value),Number($('revealSeconds').value))));
+$('open').onclick=()=>action(async()=>{
+  if(!contract)throw Error('Connect your wallet before opening a round.');
+  const readWindow=(id,label)=>{
+    const raw=$(id).value.trim();
+    if(!/^\d+$/.test(raw))throw Error(`Enter a whole number of seconds for the ${label} window.`);
+    const seconds=Number(raw);
+    if(!Number.isSafeInteger(seconds)||seconds<30)throw Error(`The ${label} window must be at least 30 seconds.`);
+    return seconds;
+  };
+  const commitSeconds=readWindow('commitSeconds','commit'), revealSeconds=readWindow('revealSeconds','reveal');
+  await contract.openRound.staticCall(commitSeconds,revealSeconds);
+  await send(contract.openRound(commitSeconds,revealSeconds));
+});
 $('buy').onclick=()=>action(async()=>{
   // Persist BEFORE submitting, so a page close after mining cannot lose the secret.
   const ticket=await contract.tickets(roundId,account);
@@ -97,9 +122,12 @@ $('buy').onclick=()=>action(async()=>{
 $('quantity').addEventListener('input',()=>refresh().catch(e=>notice(walletErrorMessage(e),true)));
 $('reveal').onclick=()=>action(async()=>{
   const secret=getSecret(roundId); if(!secret)throw Error('Secret missing. Restore your downloaded backup before revealing.');
-  await send(contract.reveal(roundId,secret));
+  // Ganache estimates gas against the latest (stale) block time, so it wrongly reports "Reveal closed"
+  // or "missing revert data" while the chain is idle. A fixed gas limit skips that estimate; the
+  // transaction is then mined with the current time.
+  await send(contract.reveal(roundId,secret,{gasLimit:300000}));
 });
-$('finalize').onclick=()=>action(()=>send(contract.finalize(roundId)));
+$('finalize').onclick=()=>action(()=>send(contract.finalize(roundId,{gasLimit:500000})));
 $('withdraw').onclick=()=>action(()=>send(contract.withdraw(account)));
 $('refund').onclick=()=>action(async()=>{
   const id=BigInt($('historyId').value);

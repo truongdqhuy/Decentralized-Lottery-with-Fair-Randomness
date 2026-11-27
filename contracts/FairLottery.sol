@@ -98,8 +98,9 @@ contract FairLottery {
     }
     function finalize(uint256 id) external {
         Round storage r = rounds[id];
-        require(r.status == Status.Open && block.timestamp >= r.revealDeadline, "Not finalizable");
         uint256 count = r.players.length;
+        bool allRevealed = count >= 2 && r.revealed == count && block.timestamp >= r.commitDeadline;
+        require(r.status == Status.Open && (block.timestamp >= r.revealDeadline || allRevealed), "Not finalizable");
         if (count < 2 || r.revealed != count) {
             r.status = Status.Cancelled;
             emit RoundCancelled(id, count - r.revealed);

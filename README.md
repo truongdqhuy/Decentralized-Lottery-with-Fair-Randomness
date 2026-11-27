@@ -250,6 +250,6 @@ Keep the same Ganache workspace and do not reset it while old rounds or funds ar
 | Refund rejected | Finalize after the reveal deadline, confirm cancellation, choose the correct round and ticket-owning wallet; refunds can be claimed only once |
 | Refund claimed but wallet balance unchanged | Click **Collect**; claiming adds credit rather than sending ETH immediately |
 | Reveal missed | Finalize after the deadline, then claim ticket payments; the missing reveal bond is forfeited |
-| Generic JSON-RPC error | Refresh and read the eligibility message; check MetaMask's transaction details and Ganache state before retrying |
+| Generic JSON-RPC error | The website simulates Open round before requesting a signature and reports contract reverts such as an active round or a non-owner account. Confirm Ganache is running, MetaMask is on the configured chain, and both windows are at least 30 seconds. |
 
 Keep private keys and secret backups out of screenshots, commits and presentations. Automated build and contract tests do not prove the browser extension is configured correctly.
